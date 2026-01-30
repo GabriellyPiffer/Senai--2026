@@ -1,0 +1,9 @@
+git clone shift+insert para colar o nome repositorio // clonar o repositorio da web
+
+//Atualizar repositorio web
+git add . //verifica arquivos alterados
+git commit -m "comentario" // verifica as alterações nos arquivos 
+git push //envia as alterações para nuvem
+ 
+//Atualizar repositorio local
+git pull
