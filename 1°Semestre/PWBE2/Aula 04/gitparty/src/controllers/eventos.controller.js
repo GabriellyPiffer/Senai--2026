@@ -21,7 +21,7 @@ const listar = async (req, res) => {
 const buscar = async (req, res) => {
     const { id } = req.params;
     
-    const item = await prisma.eventos.findUnique({
+    const item = await prisma.Eventos.findUnique({
         where: { id : Number(id) }
     });
 
