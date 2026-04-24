@@ -1,30 +1,41 @@
 const prisma = require("../data/prisma");
-const { limiteInscricoes, inscricaoDuplicada, prazoCancelamento, promoverListaEspera, verificarExcluirEvento, encerrarEvento } = require("../services/inscricoes.services");
+
+const {
+  limiteInscricoes,
+  inscricaoDuplicada,
+  prazoCancelamento,
+  promoverListaEspera
+} = require("../services/inscricoes.services");
 
 const cadastrar = async (req, res) => {
   try {
     const data = req.body;
 
+    if (!data.usuariosId || !data.eventosId) {
+      return res.status(400).json({ erro: "usuariosId e eventosId são obrigatórios" });
+    }
+
     await inscricaoDuplicada(data.usuariosId, data.eventosId);
 
     const status = await limiteInscricoes(data.eventosId);
 
-    if (status != "") data.status = status;
-
     const item = await prisma.inscricoes.create({
-      data,
+      data: {
+        ...data,
+        status: status || "CONFIRMADA"
+      }
     });
 
-    res.json(item).status(201).end();
+    return res.status(201).json(item);
+
   } catch (error) {
-   res.status(500).json(error.toString()).end();    
+    return res.status(400).json({ erro: error.message || error.toString() });
   }
 };
 
 const listar = async (req, res) => {
   const lista = await prisma.inscricoes.findMany();
-
-  res.json(lista).status(200).end();
+  return res.status(200).json(lista);
 };
 
 const buscar = async (req, res) => {
@@ -34,34 +45,58 @@ const buscar = async (req, res) => {
     where: { id: Number(id) },
   });
 
-  res.json(item).status(200).end();
+  if (!item) {
+    return res.status(404).json({ erro: "Inscrição não encontrada" });
+  }
+
+  return res.status(200).json(item);
 };
 
 const atualizar = async (req, res) => {
-  const { id } = req.params;
-  const dados = req.body;
+  try {
+    const { id } = req.params;
+    const dados = req.body;
 
-  const item = await prisma.inscricoes.update({
-    where: { id: Number(id) },
-    data: dados,
-  });
+    const existe = await prisma.inscricoes.findUnique({
+      where: { id: Number(id) }
+    });
 
-  res.json(item).status(200).end();
+    if (!existe) {
+      return res.status(404).json({ erro: "Inscrição não encontrada" });
+    }
+
+    const item = await prisma.inscricoes.update({
+      where: { id: Number(id) },
+      data: dados,
+    });
+
+    return res.status(200).json(item);
+
+  } catch (error) {
+    return res.status(400).json({ erro: error.message || error.toString() });
+  }
 };
 
 const excluir = async (req, res) => {
   try {
     const { id } = req.params;
 
-    await verificarExcluirEvento(Number(id));
+    const existe = await prisma.inscricoes.findUnique({
+      where: { id: Number(id) }
+    });
 
-    const evento = await prisma.eventos.delete({
+    if (!existe) {
+      return res.status(404).json({ erro: "Inscrição não encontrada" });
+    }
+
+    await prisma.inscricoes.delete({
       where: { id: Number(id) },
     });
 
-    res.json(evento).status(200).end();
+    return res.status(200).json({ mensagem: "Inscrição removida com sucesso" });
+
   } catch (error) {
-    res.status(500).json(error.toString()).end();
+    return res.status(400).json({ erro: error.message || error.toString() });
   }
 };
 
@@ -69,32 +104,29 @@ const cancelar = async (req, res) => {
   try {
     const { id } = req.params;
 
-    const inscricao = await prazoCancelamento(Number(id));
+    const inscricao = await prisma.inscricoes.findUnique({
+      where: { id: Number(id) }
+    });
 
-    const item = await prisma.inscricoes.update({
+    if (!inscricao) {
+      return res.status(404).json({ erro: "Inscrição não encontrada" });
+    }
+
+    if (inscricao.status !== "CONFIRMADA") {
+      return res.status(400).json({ erro: "Só inscrições confirmadas podem ser canceladas" });
+    }
+
+    await prisma.inscricoes.update({
       where: { id: Number(id) },
       data: { status: "CANCELADA" }
     });
 
-    if (inscricao.status === "CONFIRMADA") {
-      await promoverListaEspera(inscricao.eventosId);
-    }
+    await promoverListaEspera(inscricao.eventosId);
 
-    res.json(item).status(200).end();
+    return res.status(200).json({ mensagem: "Inscrição cancelada com sucesso" });
+
   } catch (error) {
-    res.status(500).json(error.toString()).end();
-  }
-};
-
-const encerrar = async (req, res) => {
-  try {
-    const { id } = req.params;
-
-    await encerrarEvento(Number(id));
-
-    res.json({ message: "Evento encerrado!" }).status(200).end();
-  } catch (error) {
-    res.status(500).json(error.toString()).end();
+    return res.status(400).json({ erro: error.message || error.toString() });
   }
 };
 
@@ -104,6 +136,5 @@ module.exports = {
   buscar,
   atualizar,
   excluir,
-  cancelar,
-  encerrar
+  cancelar
 };

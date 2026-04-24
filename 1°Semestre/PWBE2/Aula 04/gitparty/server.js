@@ -6,19 +6,23 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-const inscricoesRoutes = require('./src/routes/inscricoes.routes');
+const inscricoesRoutes = require('./src/routes/inscricoes.routes.js');
 
 app.use('/inscricoes', inscricoesRoutes);
 
 
-const eventosRoutes = require('./src/routes/eventos.routes');
+const eventosRoutes = require('./src/routes/eventos.routes.js');
 
 app.use('/eventos', eventosRoutes);
 
 
-const usuariosRoutes = require('./src/routes/usuarios.routes');
+const usuariosRoutes = require('./src/routes/usuarios.routes.js');
 
 app.use('/usuarios', usuariosRoutes);
+
+const imagemRoutes = require("./src/routes/imagem.routes.js");
+
+app.use("/imagem", imagemRoutes);
 
 
 const PORT = process.env.PORT || 3000;
